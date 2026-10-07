@@ -41,6 +41,8 @@ import { vcsEnvironment } from "../../state/vcs";
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { scopedThreadKey } from "../../lib/scopedEntities";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { useThreadShell } from "../../state/entities";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { connectionTone } from "../connection/connectionTone";
 import {
@@ -501,10 +503,25 @@ function ThreadRouteContent(
 
   /* ─── Native header theming ──────────────────────────────────────── */
   const usesNativeHeaderGlass = NATIVE_LIQUID_GLASS_SUPPORTED;
+  const delegatedFrom = selectedThread?.delegatedFrom ?? null;
+  const delegatedFromRef = useMemo(
+    () =>
+      delegatedFrom === null
+        ? null
+        : scopeThreadRef(delegatedFrom.environmentId, delegatedFrom.threadId),
+    [delegatedFrom],
+  );
+  // The title it had at delegation, until this client sees the parent itself.
+  const delegatedFromThread = useThreadShell(delegatedFromRef);
   const headerSubtitle = [
     selectedThreadProject?.title ?? null,
     selectedEnvironmentConnection?.environmentLabel ?? null,
-    selectedThread?.linkOrigin ? `From ${selectedThread.linkOrigin.label}` : null,
+    // A linked environment's delegated task names its parent; other linked work its origin.
+    delegatedFrom !== null
+      ? `Subagent of ${delegatedFromThread?.title ?? delegatedFrom.title}`
+      : selectedThread?.linkOrigin
+        ? `From ${selectedThread.linkOrigin.label}`
+        : null,
   ]
     .filter(Boolean)
     .join(" · ");
