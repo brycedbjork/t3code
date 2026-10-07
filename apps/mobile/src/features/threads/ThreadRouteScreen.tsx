@@ -104,7 +104,7 @@ function ThreadHeader(
 ) {
   const navigation = useNavigation();
   const { layout, panes, toggleAuxiliaryPane } = useAdaptiveWorkspaceLayout();
-  const { onOpenTerminal, onMergeBack } = props.gitControls;
+  const { onOpenTerminal, onMergeBack, onContinueOn } = props.gitControls;
   const native = useThreadHeaderOptions(props);
   const androidHeaderActions = useMemo<ReadonlyArray<ScreenHeaderAction>>(() => {
     const actions: ScreenHeaderAction[] = [];
@@ -143,6 +143,13 @@ function ThreadHeader(
         onPress: onMergeBack,
       });
     }
+    if (onContinueOn) {
+      actions.push({
+        accessibilityLabel: "Continue on another environment",
+        icon: "arrow.up.right",
+        onPress: onContinueOn,
+      });
+    }
     return actions;
   }, [
     props.inspectorMode,
@@ -150,6 +157,7 @@ function ThreadHeader(
     props.onOpenFilesInspector,
     onOpenTerminal,
     onMergeBack,
+    onContinueOn,
     props.onOpenGitInspector,
     toggleAuxiliaryPane,
     props.onReturnToThread,
@@ -880,6 +888,17 @@ function ThreadRouteContent(
     onMergeBack:
       mergeBackTargetThreadId !== null && mergeBackRun !== null
         ? () => void handleMergeBack()
+        : undefined,
+    onContinueOn:
+      selectedThread !== null &&
+      selectedThread !== undefined &&
+      routeEnvironmentRuntime?.serverConfig?.environment.capabilities.peerLinks === true &&
+      (selectedThread.handoff === null || selectedThread.handoff.state === "failed")
+        ? () =>
+            navigation.navigate("ThreadHandoff", {
+              environmentId: selectedThread.environmentId,
+              threadId: selectedThread.id,
+            })
         : undefined,
     currentBranch: selectedThread?.branch ?? null,
     gitStatus: gitStatus.data,
