@@ -31,7 +31,7 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeOS from "node:os";
-import { pathToFileURL } from "node:url";
+import * as NodeURL from "node:url";
 import { resolveWorktreeT3Home } from "@t3tools/shared/devHome";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
@@ -277,7 +277,7 @@ const rootIsVisible = (sql: SqlClient.SqlClient) => sql`
  */
 const copySourceSlice = Effect.fn("copyDevDbSourceSlice")(function* (sourcePath: string) {
   const sql = yield* SqlClient.SqlClient;
-  yield* sql`ATTACH DATABASE ${`${pathToFileURL(sourcePath).href}?mode=ro`} AS src`;
+  yield* sql`ATTACH DATABASE ${`${NodeURL.pathToFileURL(sourcePath).href}?mode=ro`} AS src`;
   const schema = yield* sql<{ type: string; name: string; sql: string }>`
     SELECT type, name, sql FROM src.sqlite_master
     WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'`;
