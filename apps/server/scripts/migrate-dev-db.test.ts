@@ -142,6 +142,46 @@ it.layer(NodeServices.layer)("migrate-dev-db", (it) => {
     }),
   );
 
+  it.effect("never copies a settled thread's rows, and new events append after the source's", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const sourceDir = yield* fs.makeTempDirectoryScoped({ prefix: "migrate-dev-db-slice-" });
+      const destDir = yield* fs.makeTempDirectoryScoped({ prefix: "migrate-dev-db-slice-dest-" });
+      const source = yield* createFixtureSource(sourceDir);
+      const [sourceSequence] = yield* withDatabase(
+        source,
+        Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient;
+          return yield* sql<{ seq: number }>`
+            SELECT seq FROM sqlite_sequence WHERE name = 'orchestration_events'`;
+        }),
+      );
+
+      // Keep every family, so only the copy can leave the settled one out.
+      const result = yield* runMigrateDevDb(
+        { baseDir: destDir, source, projects: 5, threadsPerProject: 100 },
+        { sharedHome: sourceDir },
+      );
+
+      const copied = yield* withDatabase(
+        result.databasePath,
+        Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient;
+          const [settledRows] = yield* sql<{ count: number }>`
+            SELECT
+              (SELECT COUNT(*) FROM orchestration_v2_projection_runs WHERE thread_id = 'settled-thread')
+              + (SELECT COUNT(*) FROM orchestration_events WHERE stream_id = 'settled-thread')
+              AS count`;
+          const [sequence] = yield* sql<{ seq: number }>`
+            SELECT seq FROM sqlite_sequence WHERE name = 'orchestration_events'`;
+          return { settledRows: settledRows?.count, sequence: sequence?.seq };
+        }),
+      );
+      assert.equal(copied.settledRows, 0);
+      assert.equal(copied.sequence, sourceSequence?.seq);
+    }),
+  );
+
   it.effect("fails loudly on a migration slot collision", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
