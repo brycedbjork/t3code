@@ -27,8 +27,14 @@ import { getCodexServiceTierOptionValue } from "../codexModelOptions.ts";
 const CODEX_TIMEOUT_MS = 180_000;
 const CODEX_MCP_LIST_TIMEOUT_MS = 10_000;
 // Plugins and apps bring MCP servers of their own; the user's are listed and
-// turned off by name below.
-const CODEX_NO_PLUGIN_ARGS = ["--disable", "plugins", "--disable", "apps"] as const;
+// turned off by name below. These follow the user's launch args, so they win
+// over a `-c features.plugins=true` there, which `--disable plugins` does not.
+const CODEX_NO_PLUGIN_ARGS = [
+  "--config",
+  "features.plugins=false",
+  "--config",
+  "features.apps=false",
+] as const;
 const CodexMcpServers = Schema.fromJsonString(
   Schema.Array(Schema.Struct({ name: Schema.String, enabled: Schema.Boolean })),
 );
@@ -188,13 +194,33 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
         ],
         { concurrency: "unbounded" },
       );
-      if (exitCode !== 0) return [];
-      const servers = yield* decodeCodexMcpServers(stdout);
+      if (exitCode !== 0) {
+        yield* Effect.logWarning("codex mcp list failed; text generation keeps its MCP servers", {
+          reason: "exit",
+          exitCode,
+        });
+        return [];
+      }
+      const servers = yield* decodeCodexMcpServers(stdout).pipe(
+        Effect.tapError(() =>
+          Effect.logWarning("codex mcp list failed; text generation keeps its MCP servers", {
+            reason: "decode",
+          }),
+        ),
+      );
       return servers.filter((server) => server.enabled).map((server) => server.name);
     },
     Effect.scoped,
     Effect.timeoutOption(CODEX_MCP_LIST_TIMEOUT_MS),
-    Effect.map(Option.getOrElse((): ReadonlyArray<string> => [])),
+    Effect.flatMap(
+      Option.match({
+        onNone: () =>
+          Effect.logWarning("codex mcp list failed; text generation keeps its MCP servers", {
+            reason: "timeout",
+          }).pipe(Effect.as<ReadonlyArray<string>>([])),
+        onSome: (names) => Effect.succeed(names),
+      }),
+    ),
     Effect.orElseSucceed((): ReadonlyArray<string> => []),
   );
 

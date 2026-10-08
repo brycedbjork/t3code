@@ -284,7 +284,7 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
           { name: "already-off", enabled: false },
         ],
         requireArg:
-          '--disable plugins --disable apps --config mcp_servers={"augmenter"={enabled=false},"my.server"={enabled=false}}',
+          '--config features.plugins=false --config features.apps=false --config mcp_servers={"augmenter"={enabled=false},"my.server"={enabled=false}}',
       },
       (textGeneration) =>
         Effect.gen(function* () {
@@ -303,7 +303,7 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
       {
         output: JSON.stringify({ branch: "remove-default-shapes" }),
         mcpServers: 2,
-        requireArg: "--disable plugins --disable apps --ephemeral",
+        requireArg: "--config features.plugins=false --config features.apps=false --ephemeral",
         forbidArg: "mcp_servers=",
       },
       (textGeneration) =>
@@ -314,6 +314,26 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
             modelSelection: DEFAULT_TEST_MODEL_SELECTION,
           });
           expect(result.branch).toBe("remove-default-shapes");
+        }),
+    ),
+  );
+
+  it.effect("keeps plugins and apps off over launch args that turn them on", () =>
+    withFakeCodexEnv(
+      {
+        output: JSON.stringify({ title: "Remove default shapes" }),
+        launchArgs: "--config features.plugins=true --config features.apps=true",
+        requireArg:
+          "--config features.plugins=true --config features.apps=true --config features.plugins=false --config features.apps=false --ephemeral",
+      },
+      (textGeneration) =>
+        Effect.gen(function* () {
+          const result = yield* textGeneration.generateThreadTitle({
+            cwd: process.cwd(),
+            message: "Remove default shapes from characters",
+            modelSelection: DEFAULT_TEST_MODEL_SELECTION,
+          });
+          expect(result.title).toBe("Remove default shapes");
         }),
     ),
   );
