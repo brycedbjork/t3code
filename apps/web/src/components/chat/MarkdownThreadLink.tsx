@@ -1,6 +1,6 @@
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { formatThreadLink } from "@t3tools/shared/threadLinks";
+import { formatThreadLink, percentDecodedThreadLinkId } from "@t3tools/shared/threadLinks";
 import { Link } from "@tanstack/react-router";
 import { MessageSquareTextIcon } from "lucide-react";
 
@@ -18,7 +18,13 @@ export function MarkdownThreadLink(props: {
   readonly threadId: ThreadId;
   readonly label: string;
 }) {
-  const thread = useThreadShell(scopeThreadRef(props.environmentId, props.threadId));
+  const decodedId = percentDecodedThreadLinkId(props.threadId);
+  const written = useThreadShell(scopeThreadRef(props.environmentId, props.threadId));
+  const decoded = useThreadShell(
+    written === null && decodedId !== null ? scopeThreadRef(props.environmentId, decodedId) : null,
+  );
+  const thread = written ?? decoded;
+  const threadId = thread?.id ?? props.threadId;
   const project = useProject(
     thread === null ? null : scopeProjectRef(props.environmentId, thread.projectId),
   );
@@ -26,9 +32,9 @@ export function MarkdownThreadLink(props: {
   return (
     <Link
       to="/$environmentId/$threadId"
-      params={{ environmentId: props.environmentId, threadId: props.threadId }}
+      params={{ environmentId: props.environmentId, threadId }}
       title={project?.title}
-      data-markdown-copy={formatThreadLink(props.threadId, title)}
+      data-markdown-copy={formatThreadLink(threadId, title)}
     >
       <span
         className="ms-[0.25em] me-[0.2em] inline-flex size-[14px] [vertical-align:-0.125em]"

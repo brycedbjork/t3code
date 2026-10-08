@@ -15,10 +15,23 @@ const THREAD_LINK_OUTSIDE_CODE =
 
 const decodeThreadId = Schema.decodeUnknownOption(ThreadId);
 
-/** The id is taken verbatim: thread ids can hold percent escapes of their own. */
+/** The id as written. Thread ids can hold percent escapes of their own, so it is not decoded. */
 export function parseThreadLinkHref(href: string): ThreadId | null {
   if (!href.startsWith(THREAD_LINK_HREF_PREFIX)) return null;
   return Option.getOrNull(decodeThreadId(href.slice(THREAD_LINK_HREF_PREFIX.length)));
+}
+
+/**
+ * Agents often percent-encode the id anyway. When the id as written names no thread, clients try
+ * this decoded form. Null when decoding changes nothing or fails.
+ */
+export function percentDecodedThreadLinkId(threadId: ThreadId): ThreadId | null {
+  try {
+    const decoded = decodeURIComponent(threadId);
+    return decoded === threadId ? null : Option.getOrNull(decodeThreadId(decoded));
+  } catch {
+    return null;
+  }
 }
 
 /** A thread link whose label survives Markdown: no brackets, backslashes, or line breaks. */
@@ -34,7 +47,10 @@ export function hasThreadLinks(markdown: string): boolean {
   return markdown.includes(`](${THREAD_LINK_HREF_PREFIX}`);
 }
 
-/** Relabels each thread link with `title(threadId)`; a link it returns nothing for keeps its label. */
+/**
+ * Relabels each thread link with `title(threadId)`, pointing it at the thread that title came from.
+ * A link it returns nothing for keeps its label.
+ */
 export function relabelThreadLinks(
   markdown: string,
   title: (threadId: ThreadId) => string | undefined,
@@ -43,8 +59,13 @@ export function relabelThreadLinks(
   return markdown.replace(THREAD_LINK_OUTSIDE_CODE, (source, ...args) => {
     const href = (args.at(-1) as { href?: string }).href;
     if (href === undefined) return source;
-    const threadId = parseThreadLinkHref(href);
-    const label = threadId === null ? undefined : title(threadId)?.trim();
-    return threadId !== null && label ? formatThreadLink(threadId, label) : source;
+    const written = parseThreadLinkHref(href);
+    if (written === null) return source;
+    const decoded = percentDecodedThreadLinkId(written);
+    for (const threadId of decoded === null ? [written] : [written, decoded]) {
+      const label = title(threadId)?.trim();
+      if (label) return formatThreadLink(threadId, label);
+    }
+    return source;
   });
 }

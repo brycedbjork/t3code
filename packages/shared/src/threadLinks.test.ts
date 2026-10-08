@@ -16,6 +16,21 @@ describe("thread links", () => {
     expect(parseThreadLinkHref("t3-thread://v1/ ")).toBeNull();
   });
 
+  it("resolves a percent-encoded id when the id as written names no thread", () => {
+    const titles = new Map([
+      ["thread:project:1", "Decoded"],
+      ["provider%3A1", "Literal escape"],
+    ]);
+    expect(
+      relabelThreadLinks(
+        "[a](t3-thread://v1/thread%3Aproject%3A1) [b](t3-thread://v1/provider%3A1)",
+        (threadId) => titles.get(threadId),
+      ),
+    ).toBe(
+      "[Decoded](t3-thread://v1/thread:project:1) [Literal escape](t3-thread://v1/provider%3A1)",
+    );
+  });
+
   it("leaves links inside code spans and fences as written", () => {
     const markdown = [
       "Live [old](t3-thread://v1/t1), literal `[old](t3-thread://v1/t1)`.",
