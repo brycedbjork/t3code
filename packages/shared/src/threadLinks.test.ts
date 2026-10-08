@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { parseThreadLinkHref, relabelThreadLinks } from "./threadLinks.ts";
+import { formatThreadLink, parseThreadLinkHref, relabelThreadLinks } from "./threadLinks.ts";
 
 describe("thread links", () => {
   it("takes the thread id verbatim, percent escapes included", () => {
@@ -14,6 +14,11 @@ describe("thread links", () => {
     expect(parseThreadLinkHref("https://t3.codes")).toBeNull();
     expect(parseThreadLinkHref("t3-thread://v1/")).toBeNull();
     expect(parseThreadLinkHref("t3-thread://v1/ ")).toBeNull();
+  });
+
+  it("formats a label that would otherwise break the Markdown link", () => {
+    expect(formatThreadLink("t1", "Fix [ci] \\ build")).toBe("[Fix ci build](t3-thread://v1/t1)");
+    expect(formatThreadLink("t1", " ] ")).toBe("[t1](t3-thread://v1/t1)");
   });
 
   it("relabels links with the current title and leaves unknown threads alone", () => {

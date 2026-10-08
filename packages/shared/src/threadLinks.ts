@@ -19,6 +19,15 @@ export function parseThreadLinkHref(href: string): ThreadId | null {
   return Option.getOrNull(decodeThreadId(href.slice(THREAD_LINK_HREF_PREFIX.length)));
 }
 
+/** A thread link whose label survives Markdown: no brackets, backslashes, or line breaks. */
+export function formatThreadLink(threadId: string, label: string): string {
+  const cleaned = label
+    .replace(/[[\]\\\r\n]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `[${cleaned || threadId}](${THREAD_LINK_HREF_PREFIX}${threadId})`;
+}
+
 export function hasThreadLinks(markdown: string): boolean {
   return markdown.includes(`](${THREAD_LINK_HREF_PREFIX}`);
 }
@@ -31,14 +40,7 @@ export function relabelThreadLinks(
   if (!hasThreadLinks(markdown)) return markdown;
   return markdown.replace(THREAD_LINK, (source, _label: string, href: string) => {
     const threadId = parseThreadLinkHref(href);
-    const label = threadId === null ? "" : sanitizeLinkLabel(title(threadId) ?? "");
-    return label.length > 0 ? `[${label}](${href})` : source;
+    const label = threadId === null ? undefined : title(threadId)?.trim();
+    return threadId !== null && label ? formatThreadLink(threadId, label) : source;
   });
-}
-
-function sanitizeLinkLabel(label: string): string {
-  return label
-    .replace(/[[\]\\\r\n]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }

@@ -88,7 +88,11 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import { parseAssistantCitationHref } from "@t3tools/shared/assistantCitations";
 import { parseComposerContextHref } from "@t3tools/shared/composerContextReferences";
-import { parseThreadLinkHref, THREAD_LINK_PROTOCOL } from "@t3tools/shared/threadLinks";
+import {
+  formatThreadLink,
+  parseThreadLinkHref,
+  THREAD_LINK_PROTOCOL,
+} from "@t3tools/shared/threadLinks";
 import { AssistantCitationChip } from "./chat/AssistantCitationChip";
 import { ThreadContextChip } from "./ThreadContextChip";
 import remarkGfm from "remark-gfm";
@@ -3174,7 +3178,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
       return environmentId ? (
         <ThreadContextChip
           record={{ environmentId, threadId: linkedThreadId, title }}
-          copyMarkdown={`[${title}](${href})`}
+          copyMarkdown={formatThreadLink(linkedThreadId, title)}
         />
       ) : (
         <span>{title}</span>
