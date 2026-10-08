@@ -61,11 +61,13 @@ export function relabelThreadLinks(
     if (href === undefined) return source;
     const written = parseThreadLinkHref(href);
     if (written === null) return source;
+    // The decoded id only stands in when the id as written names no thread.
     const decoded = percentDecodedThreadLinkId(written);
-    for (const threadId of decoded === null ? [written] : [written, decoded]) {
-      const label = title(threadId)?.trim();
-      if (label) return formatThreadLink(threadId, label);
-    }
-    return source;
+    const threadId =
+      title(written) === undefined && decoded !== null && title(decoded) !== undefined
+        ? decoded
+        : written;
+    const label = title(threadId)?.trim();
+    return label ? formatThreadLink(threadId, label) : source;
   });
 }
