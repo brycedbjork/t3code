@@ -88,13 +88,9 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkBreaks from "remark-breaks";
 import { parseAssistantCitationHref } from "@t3tools/shared/assistantCitations";
 import { parseComposerContextHref } from "@t3tools/shared/composerContextReferences";
-import {
-  formatThreadLink,
-  parseThreadLinkHref,
-  THREAD_LINK_PROTOCOL,
-} from "@t3tools/shared/threadLinks";
+import { parseThreadLinkHref, THREAD_LINK_PROTOCOL } from "@t3tools/shared/threadLinks";
 import { AssistantCitationChip } from "./chat/AssistantCitationChip";
-import { ThreadContextChip } from "./ThreadContextChip";
+import { MarkdownThreadLink } from "./chat/MarkdownThreadLink";
 import remarkGfm from "remark-gfm";
 import type { Processor } from "unified";
 import { isWindowsAbsolutePath } from "@t3tools/shared/path";
@@ -3171,17 +3167,14 @@ const CHAT_MARKDOWN_COMPONENTS = {
     } = use(ChatMarkdownRendererContext);
     const citation = href ? parseAssistantCitationHref(href) : null;
     if (citation) return <AssistantCitationChip citation={citation} />;
-    // A thread link is the same chip as an attached thread: current title, opens in the app.
+    // A thread link names a thread in this message's environment and opens it in the app.
     const linkedThreadId = href ? parseThreadLinkHref(href) : null;
     if (linkedThreadId) {
-      const title = hastPlainTextDeep(node) || linkedThreadId;
+      const label = hastPlainTextDeep(node) || linkedThreadId;
       return environmentId ? (
-        <ThreadContextChip
-          record={{ environmentId, threadId: linkedThreadId, title }}
-          copyMarkdown={formatThreadLink(linkedThreadId, title)}
-        />
+        <MarkdownThreadLink environmentId={environmentId} threadId={linkedThreadId} label={label} />
       ) : (
-        <span>{title}</span>
+        <span>{label}</span>
       );
     }
     const contextReference = href ? parseComposerContextHref(href) : null;

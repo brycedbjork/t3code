@@ -16,6 +16,25 @@ describe("thread links", () => {
     expect(parseThreadLinkHref("t3-thread://v1/ ")).toBeNull();
   });
 
+  it("leaves links inside code spans and fences as written", () => {
+    const markdown = [
+      "Live [old](t3-thread://v1/t1), literal `[old](t3-thread://v1/t1)`.",
+      "```md",
+      "[old](t3-thread://v1/t1)",
+      "```",
+      "After [old](t3-thread://v1/t1)",
+    ].join("\n");
+    expect(relabelThreadLinks(markdown, () => "New")).toBe(
+      [
+        "Live [New](t3-thread://v1/t1), literal `[old](t3-thread://v1/t1)`.",
+        "```md",
+        "[old](t3-thread://v1/t1)",
+        "```",
+        "After [New](t3-thread://v1/t1)",
+      ].join("\n"),
+    );
+  });
+
   it("formats a label that would otherwise break the Markdown link", () => {
     expect(formatThreadLink("t1", "Fix [ci] \\ build")).toBe("[Fix ci build](t3-thread://v1/t1)");
     expect(formatThreadLink("t1", " ] ")).toBe("[t1](t3-thread://v1/t1)");

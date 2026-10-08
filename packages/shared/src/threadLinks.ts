@@ -9,7 +9,9 @@ import * as Schema from "effect/Schema";
  */
 export const THREAD_LINK_PROTOCOL = "t3-thread";
 const THREAD_LINK_HREF_PREFIX = `${THREAD_LINK_PROTOCOL}://v1/`;
-const THREAD_LINK = /\[([^\]\n]*)\]\((t3-thread:\/\/v1\/[^\s)]+)\)/g;
+// Code comes first in the alternation so a link written inside a code span or fence is skipped.
+const THREAD_LINK_OUTSIDE_CODE =
+  /(?<fence>(`{3,}|~{3,})[\s\S]*?(?:\2|$))|(?<span>(`+)[^\n]*?\4)|\[[^\]\n]*\]\((?<href>t3-thread:\/\/v1\/[^\s)]+)\)/g;
 
 const decodeThreadId = Schema.decodeUnknownOption(ThreadId);
 
@@ -38,7 +40,9 @@ export function relabelThreadLinks(
   title: (threadId: ThreadId) => string | undefined,
 ): string {
   if (!hasThreadLinks(markdown)) return markdown;
-  return markdown.replace(THREAD_LINK, (source, _label: string, href: string) => {
+  return markdown.replace(THREAD_LINK_OUTSIDE_CODE, (source, ...args) => {
+    const href = (args.at(-1) as { href?: string }).href;
+    if (href === undefined) return source;
     const threadId = parseThreadLinkHref(href);
     const label = threadId === null ? undefined : title(threadId)?.trim();
     return threadId !== null && label ? formatThreadLink(threadId, label) : source;
