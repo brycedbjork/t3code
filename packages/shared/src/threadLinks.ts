@@ -1,58 +1,44 @@
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { ThreadId } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 /**
- * In-app links to threads. Agents put them in Markdown as
- * `[title](t3-thread://v1/<environmentId>/<threadId>)`, and clients open the
- * thread instead of a browser. Thread tools return a ready `link` for each
- * thread, so agents never build one by hand.
+ * Agents mention another thread in Markdown as `[title](t3-thread://v1/<threadId>)`. The id is
+ * the reference and resolves in the environment of the message that holds it. Titles change, so
+ * clients show the thread's current title; the label only stands in for a thread they cannot see.
  */
 export const THREAD_LINK_PROTOCOL = "t3-thread";
 const THREAD_LINK_HREF_PREFIX = `${THREAD_LINK_PROTOCOL}://v1/`;
-const LINK_LABEL_MAX_CHARS = 120;
+const THREAD_LINK = /\[([^\]\n]*)\]\((t3-thread:\/\/v1\/[^\s)]+)\)/g;
 
-const decodeEnvironmentId = Schema.decodeUnknownOption(EnvironmentId);
 const decodeThreadId = Schema.decodeUnknownOption(ThreadId);
 
-// encodeURIComponent keeps parentheses, and a raw `)` would end the Markdown link early.
-function encodeIdSegment(id: string): string {
-  return encodeURIComponent(id).replace(/\(/g, "%28").replace(/\)/g, "%29");
-}
-
-function formatThreadLinkHref(environmentId: string, threadId: string): string {
-  return `${THREAD_LINK_HREF_PREFIX}${encodeIdSegment(environmentId)}/${encodeIdSegment(threadId)}`;
-}
-
-/** A Markdown link to the thread, labeled with its title. */
-export function formatThreadLink(thread: {
-  readonly environmentId: string;
-  readonly threadId: string;
-  readonly title: string;
-}): string {
-  const label =
-    thread.title
-      .replace(/[[\]\\\r\n]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, LINK_LABEL_MAX_CHARS) || "Untitled thread";
-  return `[${label}](${formatThreadLinkHref(thread.environmentId, thread.threadId)})`;
-}
-
-export function parseThreadLinkHref(
-  href: string,
-): { readonly environmentId: EnvironmentId; readonly threadId: ThreadId } | null {
+/** The id is taken verbatim: thread ids can hold percent escapes of their own. */
+export function parseThreadLinkHref(href: string): ThreadId | null {
   if (!href.startsWith(THREAD_LINK_HREF_PREFIX)) return null;
-  const parts = href.slice(THREAD_LINK_HREF_PREFIX.length).split("/");
-  if (parts.length !== 2) return null;
-  try {
-    const environmentId = decodeEnvironmentId(decodeURIComponent(parts[0]!));
-    const threadId = decodeThreadId(decodeURIComponent(parts[1]!));
-    return Option.isSome(environmentId) && Option.isSome(threadId)
-      ? { environmentId: environmentId.value, threadId: threadId.value }
-      : null;
-  } catch {
-    // Malformed percent encoding.
-    return null;
-  }
+  return Option.getOrNull(decodeThreadId(href.slice(THREAD_LINK_HREF_PREFIX.length)));
+}
+
+export function hasThreadLinks(markdown: string): boolean {
+  return markdown.includes(`](${THREAD_LINK_HREF_PREFIX}`);
+}
+
+/** Relabels each thread link with `title(threadId)`; a link it returns nothing for keeps its label. */
+export function relabelThreadLinks(
+  markdown: string,
+  title: (threadId: ThreadId) => string | undefined,
+): string {
+  if (!hasThreadLinks(markdown)) return markdown;
+  return markdown.replace(THREAD_LINK, (source, _label: string, href: string) => {
+    const threadId = parseThreadLinkHref(href);
+    const label = threadId === null ? "" : sanitizeLinkLabel(title(threadId) ?? "");
+    return label.length > 0 ? `[${label}](${href})` : source;
+  });
+}
+
+function sanitizeLinkLabel(label: string): string {
+  return label
+    .replace(/[[\]\\\r\n]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

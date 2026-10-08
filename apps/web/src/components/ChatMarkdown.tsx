@@ -90,7 +90,7 @@ import { parseAssistantCitationHref } from "@t3tools/shared/assistantCitations";
 import { parseComposerContextHref } from "@t3tools/shared/composerContextReferences";
 import { parseThreadLinkHref, THREAD_LINK_PROTOCOL } from "@t3tools/shared/threadLinks";
 import { AssistantCitationChip } from "./chat/AssistantCitationChip";
-import { MarkdownThreadLink } from "./chat/MarkdownThreadLink";
+import { ThreadContextChip } from "./ThreadContextChip";
 import remarkGfm from "remark-gfm";
 import type { Processor } from "unified";
 import { isWindowsAbsolutePath } from "@t3tools/shared/path";
@@ -3167,13 +3167,17 @@ const CHAT_MARKDOWN_COMPONENTS = {
     } = use(ChatMarkdownRendererContext);
     const citation = href ? parseAssistantCitationHref(href) : null;
     if (citation) return <AssistantCitationChip citation={citation} />;
-    // A thread link opens the thread here, never a browser.
-    const threadLink = href ? parseThreadLinkHref(href) : null;
-    if (threadLink) {
-      return (
-        <MarkdownThreadLink {...threadLink}>
-          <MarkdownLinkContext value>{children}</MarkdownLinkContext>
-        </MarkdownThreadLink>
+    // A thread link is the same chip as an attached thread: current title, opens in the app.
+    const linkedThreadId = href ? parseThreadLinkHref(href) : null;
+    if (linkedThreadId) {
+      const title = hastPlainTextDeep(node) || linkedThreadId;
+      return environmentId ? (
+        <ThreadContextChip
+          record={{ environmentId, threadId: linkedThreadId, title }}
+          copyMarkdown={`[${title}](${href})`}
+        />
+      ) : (
+        <span>{title}</span>
       );
     }
     const contextReference = href ? parseComposerContextHref(href) : null;

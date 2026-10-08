@@ -1,28 +1,28 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { formatThreadLink, parseThreadLinkHref } from "./threadLinks.ts";
+import { parseThreadLinkHref, relabelThreadLinks } from "./threadLinks.ts";
 
 describe("thread links", () => {
-  it("round-trips ids that contain URL characters", () => {
-    const link = formatThreadLink({
-      environmentId: "studio mac",
-      threadId: "mcp:(1)/2",
-      title: "Fix [the] build\nnow",
-    });
-    const href = /\]\((.+)\)$/.exec(link)![1]!;
-    expect(link.startsWith("[Fix the build now](")).toBe(true);
-    // A raw parenthesis would end the Markdown link early.
-    expect(href).not.toMatch(/[()]/);
-    expect(parseThreadLinkHref(href)).toEqual({
-      environmentId: "studio mac",
-      threadId: "mcp:(1)/2",
-    });
+  it("takes the thread id verbatim, percent escapes included", () => {
+    expect(parseThreadLinkHref("t3-thread://v1/mcp:1234")).toBe("mcp:1234");
+    expect(parseThreadLinkHref("t3-thread://v1/thread:delegated-task:mcp%3A1")).toBe(
+      "thread:delegated-task:mcp%3A1",
+    );
   });
 
-  it("rejects other links and malformed ones", () => {
+  it("rejects other links and an empty id", () => {
     expect(parseThreadLinkHref("https://t3.codes")).toBeNull();
-    expect(parseThreadLinkHref("t3-thread://v1/only-one")).toBeNull();
-    expect(parseThreadLinkHref("t3-thread://v1/env/%E0%A4%A")).toBeNull();
-    expect(parseThreadLinkHref("t3-thread://v1/%20/thread")).toBeNull();
+    expect(parseThreadLinkHref("t3-thread://v1/")).toBeNull();
+    expect(parseThreadLinkHref("t3-thread://v1/ ")).toBeNull();
+  });
+
+  it("relabels links with the current title and leaves unknown threads alone", () => {
+    const titles = new Map([["renamed", "Fix [the] build\nnow"]]);
+    expect(
+      relabelThreadLinks(
+        "See [Old name](t3-thread://v1/renamed) and [Gone](t3-thread://v1/deleted).",
+        (threadId) => titles.get(threadId),
+      ),
+    ).toBe("See [Fix the build now](t3-thread://v1/renamed) and [Gone](t3-thread://v1/deleted).");
   });
 });
